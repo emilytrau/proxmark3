@@ -21,7 +21,13 @@ set(ARM32_CPUS armel armhf armv7-a)
 
 message(STATUS "CMAKE_SYSTEM_PROCESSOR := ${CMAKE_SYSTEM_PROCESSOR}")
 
-if ("${CMAKE_SYSTEM_PROCESSOR}" IN_LIST X86_CPUS)
+if (EMSCRIPTEN)
+    message(STATUS "Building optimised wasm binaries")
+
+    # TODO support WebAssembly SIMD
+
+    set(SIMD_TARGETS)
+elseif ("${CMAKE_SYSTEM_PROCESSOR}" IN_LIST X86_CPUS)
     message(STATUS "Building optimised x86/x86_64 binaries")
 
     target_compile_options(pm3rrg_rdv4_hardnested_nosimd BEFORE PRIVATE

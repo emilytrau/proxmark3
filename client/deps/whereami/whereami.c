@@ -634,6 +634,18 @@ int WAI_PREFIX(getModulePath)(char *out, int capacity, int *dirname_length) {
 
 #endif // WAI_PM3_TUNED
 
+#elif defined(__EMSCRIPTEN__)
+
+WAI_FUNCSPEC
+int WAI_PREFIX(getExecutablePath)(char *out, int capacity, int *dirname_length) {
+    return -1;
+}
+
+WAI_NOINLINE WAI_FUNCSPEC
+int WAI_PREFIX(getModulePath)(char *out, int capacity, int *dirname_length) {
+    return -1;
+}
+
 #else
 
 #error unsupported platform

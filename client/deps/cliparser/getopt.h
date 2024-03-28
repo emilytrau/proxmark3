@@ -35,7 +35,17 @@
 #ifndef _GETOPT_H_
 #define _GETOPT_H_
 
+#if defined(__EMSCRIPTEN__)
+#if defined(__cplusplus)
+#define	__BEGIN_DECLS	extern "C" {
+#define	__END_DECLS	}
+#else
+#define	__BEGIN_DECLS
+#define	__END_DECLS
+#endif
+#else
 #include <sys/cdefs.h>
+#endif
 
 /*
  * GNU-like getopt_long()/getopt_long_only() with 4.4BSD optreset extension.

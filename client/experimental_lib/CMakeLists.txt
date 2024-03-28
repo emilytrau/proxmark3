@@ -33,6 +33,10 @@
 #    -DANDROID_ABI=armeabi-v7a \
 #    -DANDROID_NATIVE_API_LEVEL=android-19 \
 #    -DSKIPBT=1 -DSKIPPYTHON=1 -DSKIPPTHREAD=1 ..
+#
+# WebAssembly:
+# emcmake cmake \
+#   -DEMBED_BZIP2=ON -DEMBED_LZ4=ON -DSKIPREADLINE=1 -DSKIPGD=1 ..
 
 message(STATUS "CMake ${CMAKE_VERSION}")
 cmake_minimum_required(VERSION 3.10)
