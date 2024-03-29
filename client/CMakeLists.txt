@@ -93,11 +93,16 @@ endif (NOT SKIPPYTHON EQUAL 1)
 if (CMAKE_TOOLCHAIN_FILE)
     if (ANDROID)
         set(CFLAGS_EXTERNAL_LIB "CFLAGS=--target=${CMAKE_C_COMPILER_TARGET} -w")
-    endif (ANDROID)
-    set(EMBED_READLINE ON)
-    set(EMBED_BZIP2 ON)
-    set(EMBED_LZ4 ON)
-    set(EMBED_GD ON)
+        set(EMBED_READLINE ON)
+        set(EMBED_BZIP2 ON)
+        set(EMBED_LZ4 ON)
+        set(EMBED_GD ON)
+        endif (ANDROID)
+    if (IOS)
+        set(CFLAGS_EXTERNAL_LIB "CFLAGS=--sysroot=${CMAKE_OSX_SYSROOT} ${CMAKE_C_FLAGS}")
+        set(EMBED_BZIP2 ON)
+        set(EMBED_LZ4 ON)
+    endif (IOS)
 endif (CMAKE_TOOLCHAIN_FILE)
 
 if (EMBED_READLINE OR EMBED_BZIP2 OR EMBED_LZ4 OR EMBED_GD)
@@ -676,11 +681,19 @@ message(STATUS "================================================================
 
 add_definitions(-DHAVE_SNPRINTF)
 
-add_executable(proxmark3
-        ${PM3_ROOT}/client/src/proxmark3.c
-        ${TARGET_SOURCES}
-        ${ADDITIONAL_SRC}
-)
+if (IOS)
+    add_library(proxmark3 SHARED
+            ${PM3_ROOT}/client/src/proxmark3.c
+            ${TARGET_SOURCES}
+            ${ADDITIONAL_SRC}
+    )
+else (IOS)
+    add_executable(proxmark3
+            ${PM3_ROOT}/client/src/proxmark3.c
+            ${TARGET_SOURCES}
+            ${ADDITIONAL_SRC}
+    )
+endif (IOS)
 
 target_compile_options(proxmark3 PUBLIC -Wall -O3)
 if (EMBED_READLINE)
