@@ -231,7 +231,7 @@ static void showBanner(void) {
 //    PrintAndLogEx(NORMAL, "   Monero");
 //    PrintAndLogEx(NORMAL, " 43mNJLpgBVaTvyZmX9ajcohpvVkaRy1kbZPm8tqAb7itZgfuYecgkRF36rXrKFUkwEGeZedPsASRxgv4HPBHvJwyJdyvQuP");
     PrintAndLogEx(NORMAL, "");
-    fflush(thread_stdout);
+    fflush(stdout);
     g_printAndLog = old_printAndLog;
 }
 #endif //LIBPM3

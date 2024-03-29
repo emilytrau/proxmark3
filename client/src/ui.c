@@ -79,7 +79,7 @@ int searchHomeFilePath(char **foundpath, const char *subdir, const char *filenam
 
     const char *user_path = get_my_user_directory();
     if (user_path == NULL) {
-        fprintf(thread_stderr, "Could not retrieve $HOME from the environment\n");
+        fprintf(stderr, "Could not retrieve $HOME from the environment\n");
         return PM3_EFILE;
     }
 
@@ -111,7 +111,7 @@ int searchHomeFilePath(char **foundpath, const char *subdir, const char *filenam
     if ((result != 0) && create_home) {
 
         if (MKDIR_CHK) {
-            fprintf(thread_stderr, "Could not create user directory %s\n", path);
+            fprintf(stderr, "Could not create user directory %s\n", path);
             free(path);
             return PM3_EFILE;
         }
@@ -143,7 +143,7 @@ int searchHomeFilePath(char **foundpath, const char *subdir, const char *filenam
         if ((result != 0) && create_home) {
 
             if (MKDIR_CHK) {
-                fprintf(thread_stderr, "Could not create user directory %s\n", path);
+                fprintf(stderr, "Could not create user directory %s\n", path);
                 free(path);
                 return PM3_EFILE;
             }
@@ -416,7 +416,7 @@ static void fPrintAndLog(FILE *stream, const char *fmt, ...) {
     }
 
     if (flushAfterWrite)
-        fflush(thread_stdout);
+        fflush(stdout);
 
     //release lock
     pthread_mutex_unlock(&g_print_lock);
@@ -743,7 +743,7 @@ void print_progress(uint64_t count, uint64_t max, barMode_t style) {
             break;
         }
     }
-    fflush(thread_stdout);
+    fflush(stdout);
     free(bar);
     free(cbar);
 }
