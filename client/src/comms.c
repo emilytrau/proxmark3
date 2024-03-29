@@ -31,6 +31,8 @@
 #include "util_darwin.h" // en/dis-ableNapp();
 #include "usart_defs.h"
 
+#include "ios_error.h"
+
 // #define COMMS_DEBUG
 // #define COMMS_DEBUG_RAW
 
@@ -234,7 +236,7 @@ static void storeReply(PacketResponseNG *packet) {
         //If these two are equal, we're about to overwrite in the
         // circular buffer.
         PrintAndLogEx(FAILED, "WARNING: Command buffer about to overwrite command! This needs to be fixed!");
-        fflush(stdout);
+        fflush(thread_stdout);
     }
     //Store the command at the 'head' location
     PacketResponseNG *destination = &rxBuffer[cmd_head];
@@ -731,7 +733,7 @@ bool OpenProxmarkSilent(pm3_device_t **dev, const char *port, uint32_t speed) {
 
         g_session.pm3_present = true; // TODO support for multiple devices
 
-        fflush(stdout);
+        fflush(thread_stdout);
         if (*dev == NULL) {
             *dev = calloc(sizeof(pm3_device_t), sizeof(uint8_t));
         }
@@ -747,7 +749,7 @@ bool OpenProxmark(pm3_device_t **dev, const char *port, bool wait_for_port, int 
         sp = uart_open(port, speed, false);
     } else {
         PrintAndLogEx(SUCCESS, "Waiting for Proxmark3 to appear on " _YELLOW_("%s"), port);
-        fflush(stdout);
+        fflush(thread_stdout);
         int openCount = 0;
         PrintAndLogEx(INPLACE, "% 3i", timeout);
         do {
@@ -789,7 +791,7 @@ bool OpenProxmark(pm3_device_t **dev, const char *port, bool wait_for_port, int 
         __atomic_clear(&comm_thread_dead, __ATOMIC_SEQ_CST);
         g_session.pm3_present = true; // TODO support for multiple devices
 
-        fflush(stdout);
+        fflush(thread_stdout);
         if (*dev == NULL) {
             *dev = calloc(sizeof(pm3_device_t), sizeof(uint8_t));
         }

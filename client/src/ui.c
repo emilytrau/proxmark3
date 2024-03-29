@@ -42,6 +42,8 @@
 # include <direct.h>    // _mkdir
 #endif
 
+#include "ios_error.h"
+
 #include <time.h>
 #include "emojis.h"
 #include "emojis_alt.h"
@@ -77,7 +79,7 @@ int searchHomeFilePath(char **foundpath, const char *subdir, const char *filenam
 
     const char *user_path = get_my_user_directory();
     if (user_path == NULL) {
-        fprintf(stderr, "Could not retrieve $HOME from the environment\n");
+        fprintf(thread_stderr, "Could not retrieve $HOME from the environment\n");
         return PM3_EFILE;
     }
 
@@ -109,7 +111,7 @@ int searchHomeFilePath(char **foundpath, const char *subdir, const char *filenam
     if ((result != 0) && create_home) {
 
         if (MKDIR_CHK) {
-            fprintf(stderr, "Could not create user directory %s\n", path);
+            fprintf(thread_stderr, "Could not create user directory %s\n", path);
             free(path);
             return PM3_EFILE;
         }
@@ -141,7 +143,7 @@ int searchHomeFilePath(char **foundpath, const char *subdir, const char *filenam
         if ((result != 0) && create_home) {
 
             if (MKDIR_CHK) {
-                fprintf(stderr, "Could not create user directory %s\n", path);
+                fprintf(thread_stderr, "Could not create user directory %s\n", path);
                 free(path);
                 return PM3_EFILE;
             }
@@ -207,7 +209,7 @@ void PrintAndLogEx(logLevel_t level, const char *fmt, ...) {
     char buffer2[MAX_PRINT_BUFFER + sizeof(prefix)] = {0};
     char *token = NULL;
     char *tmp_ptr = NULL;
-    FILE *stream = stdout;
+    FILE *stream = thread_stdout;
     const char *spinner[] = {_YELLOW_("[\\]"), _YELLOW_("[|]"), _YELLOW_("[/]"), _YELLOW_("[-]")};
     const char *spinner_emoji[] = {" :clock1: ", " :clock2: ", " :clock3: ", " :clock4: ", " :clock5: ", " :clock6: ",
                                    " :clock7: ", " :clock8: ", " :clock9: ", " :clock10: ", " :clock11: ", " :clock12: "
@@ -218,7 +220,7 @@ void PrintAndLogEx(logLevel_t level, const char *fmt, ...) {
                 strncpy(prefix,  "[" _RED_("!!") "] :rotating_light: ", sizeof(prefix) - 1);
             else
                 strncpy(prefix, "[" _RED_("!!") "] ", sizeof(prefix) - 1);
-            stream = stderr;
+            stream = thread_stderr;
             break;
         case FAILED:
             if (g_session.emoji_mode == EMO_EMOJI)
@@ -414,7 +416,7 @@ static void fPrintAndLog(FILE *stream, const char *fmt, ...) {
     }
 
     if (flushAfterWrite)
-        fflush(stdout);
+        fflush(thread_stdout);
 
     //release lock
     pthread_mutex_unlock(&g_print_lock);
@@ -741,7 +743,7 @@ void print_progress(uint64_t count, uint64_t max, barMode_t style) {
             break;
         }
     }
-    fflush(stdout);
+    fflush(thread_stdout);
     free(bar);
     free(cbar);
 }

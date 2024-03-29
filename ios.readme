@@ -1,0 +1,1 @@
+rm -rf build && cmake -B build -G Xcode -DCMAKE_TOOLCHAIN_FILE=/Users/emilytrau/code/ios-cmake/ios.toolchain.cmake -DPLATFORM=OS64 -DSKIPPYTHON=1 -DCMAKE_XCODE_ATTRIBUTE_DEVELOPMENT_TEAM=9B5N3S8893 && cmake --build build --config Release && xcodebuild -create-xcframework -framework build/Release-iphoneos/proxmark3.framework -output build/proxmark3.xcframework

@@ -41,7 +41,7 @@
 static id activity = nil;
 
 //OS X Version 10.10 is defined in OS X 10.10 and later
-#if defined(MAC_OS_X_VERSION_10_10)
+#if defined(MAC_OS_X_VERSION_10_10) && !TARGET_OS_IOS
 #if USING_ARC
 @implementation AppDelegate {
     id <NSObject> activity;

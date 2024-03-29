@@ -29,6 +29,8 @@
 #include "usart_defs.h"
 #include "ui.h"           // PrintAndLog
 
+#include "ios_error.h"
+
 static int CmdHelp(const char *Cmd);
 
 static int usart_tx(uint8_t *data, size_t len) {
@@ -227,7 +229,7 @@ static int CmdUsartBtFactory(const char *Cmd) {
     PrintAndLogEx(WARNING, "Is the add-on blue light blinking? (Say 'n' if you want to abort) [y/n]");
 
     char input[3];
-    if ((fgets(input, sizeof(input), stdin) == NULL) || (strncmp(input, "y\n", sizeof(input)) != 0)) {
+    if ((fgets(input, sizeof(input), thread_stdin) == NULL) || (strncmp(input, "y\n", sizeof(input)) != 0)) {
         PrintAndLogEx(NORMAL, "");
         PrintAndLogEx(FAILED, "Aborting.");
         return PM3_EOPABORTED;

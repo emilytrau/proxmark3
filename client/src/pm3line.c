@@ -32,6 +32,8 @@
 #include "ui.h"                          // g_session
 #include "util.h"                        // str_ndup
 
+#include "ios_error.h"
+
 #if defined(HAVE_READLINE)
 
 static char *rl_command_generator(const char *text, int state) {
@@ -170,7 +172,7 @@ char *pm3line_read(const char *s) {
     char *answer = NULL;
     size_t anslen = 0;
     int ret;
-    if ((ret = getline(&answer, &anslen, stdin)) < 0) {
+    if ((ret = getline(&answer, &anslen, thread_stdin)) < 0) {
         // TODO this happens also when kbd_enter_pressed() is used, with a key pressed or not
         printf("DEBUG: getline returned %i", ret);
         free(answer);
