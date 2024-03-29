@@ -691,10 +691,6 @@ if (IOS)
         FRAMEWORK TRUE
         FRAMEWORK_VERSION C
         MACOSX_FRAMEWORK_IDENTIFIER au.id.emily.proxmark3
-        # "current version" in semantic format in Mach-O binary file
-        VERSION 16.4.0
-        # "compatibility version" in semantic format in Mach-O binary file
-        SOVERSION 1.0.0
     )
     find_library(ios_system_LIBRARY
         NAMES ios_system
@@ -702,8 +698,6 @@ if (IOS)
         REQUIRED
     )
     target_link_libraries(proxmark3 PRIVATE ${ios_system_LIBRARY})
-    target_include_directories(proxmark3 PRIVATE ${ios_system_LIBRARY}/Headers)
-    message(STATUS "ios_system:          found ${ios_system_LIBRARY}")
 else (IOS)
     add_executable(proxmark3
             ${PM3_ROOT}/client/src/proxmark3.c
