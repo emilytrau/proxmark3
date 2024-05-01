@@ -395,7 +395,7 @@ main_loop(char *script_cmds_file, char *script_cmd, bool stayInCommandLoop) {
         script_cmd_len = strlen(script_cmd);
         str_creplace(script_cmd, script_cmd_len, ';', '\0');
     }
-    bool stdinOnPipe = !ios_isatty(STDIN_FILENO);
+    bool stdinOnPipe = !isatty(STDIN_FILENO);
     char script_cmd_buf[256] = {0x00};  // iceman, needs lua script the same file_path_buffer as the rest
 
     // cache Version information now:
@@ -1040,8 +1040,8 @@ int main(int argc, char *argv[]) {
     // For info, grep --color=auto is doing sth like this, plus test getenv("TERM") != "dumb":
     //   struct stat tmp_stat;
     //   if ((fstat (STDOUT_FILENO, &tmp_stat) == 0) && (S_ISCHR (tmp_stat.st_mode)) && isatty(STDIN_FILENO))
-    g_session.stdinOnTTY = ios_isatty(STDIN_FILENO);
-    g_session.stdoutOnTTY = ios_isatty(STDOUT_FILENO);
+    g_session.stdinOnTTY = isatty(STDIN_FILENO);
+    g_session.stdoutOnTTY = isatty(STDOUT_FILENO);
     g_session.supports_colors = false;
     g_session.emoji_mode = EMO_ALTTEXT;
     if (g_session.stdinOnTTY && g_session.stdoutOnTTY) {

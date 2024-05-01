@@ -18,6 +18,10 @@ extern "C" {
 #include <stdio.h>
 #include <pthread.h>
 
+#if __APPLE__
+#include <TargetConditionals.h>
+#if TARGET_OS_IPHONE
+
 /* #define errx compileError
 #define err compileError
 #define warn compileError
@@ -65,6 +69,7 @@ extern __thread FILE* thread_stderr;
 #define getenv ios_getenv
 #define setenv ios_setenv
 #define unsetenv ios_unsetenv
+#define isatty ios_isatty;
 #define putenv ios_putenv
 #define fchdir ios_fchdir
 
@@ -115,6 +120,12 @@ extern int ios_storeInteractive(void);
 extern const char* ios_expandtilde(const char *login);
 extern void ios_activateChildStreams(FILE** old_stdin, FILE** old_stdout,  FILE ** old_stderr);
 extern const char* ios_getBookmarkedVersion(const char* p);
+#endif
+#else
+#define thread_stdin stdin
+#define thread_stdout stdout
+#define thread_stderr stderr
+#endif
 
 #ifdef __cplusplus
 }
