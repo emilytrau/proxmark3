@@ -35,7 +35,7 @@ AT91SAM7S256  USB Device Port
 #define AT91C_EP_CONTROL        0
 #define AT91C_EP_OUT            1  // cfg bulk out
 #define AT91C_EP_IN             2  // cfg bulk in
-#define AT91C_EP_NOTIFY         3  // cfg cdc notification interrup
+#define AT91C_EP_NOTIFY         3  // cfg cdc notification interrupt
 
 // The endpoint size is defined in usb_cdc.h
 
@@ -51,6 +51,9 @@ AT91SAM7S256  USB Device Port
 #define USB_DESCRIPTOR_OTG              0x09    // DescriptorType for an OTG Descriptor.
 #define USB_DESCRIPTOR_IAD              0x0B    // DescriptorType for a Interface Association Descriptor
 #define USB_DESCRIPTOR_TYPE_BO          0x0F    // DescriptorType for a BOS Descriptor.
+
+#define USB_DESCRIPTOR_CS_INTERFACE 0x24
+#define USB_DESCRIPTOR_CS_ENDPOINT  0x25
 
 /* Configuration Attributes */
 #define _DEFAULT    (0x01<<7)       //Default Value (Bit 7 is set)
@@ -111,6 +114,9 @@ AT91SAM7S256  USB Device Port
 #define SET_LINE_CODING               0x2021
 #define SET_CONTROL_LINE_STATE        0x2221
 
+#define MIDI_GET_STATUS      0xFF21
+#define MIDI_BULK_GET_STATUS 0xFF22
+
 static bool isAsyncRequestFinished = false;
 static AT91PS_UDP pUdp = AT91C_BASE_UDP;
 static uint8_t btConfiguration = 0;
@@ -122,9 +128,9 @@ static const char devDescriptor[] = {
     0x12,      // Length
     USB_DESCRIPTOR_DEVICE,      // Descriptor Type (DEVICE)
     0x00, 0x02, // Complies with USB Spec. Release (0200h = release 2.00)  0210 == release 2.10
-    2,      // Device Class:    Communication Device Class
-    0,      // Device Subclass: CDC class sub code ACM [ice 0x02 = win10 virtual comport ]
-    0,      // Device Protocol: CDC Device protocol (unused)
+    0xEF,   // Device Class:    Miscellaneous
+    2,      // Device Subclass: Interface Association Descriptor
+    1,      // Device Protocol: Interface Association Descriptor
     AT91C_USB_EP_CONTROL_SIZE,      // MaxPacketSize0
     0xc4, 0x9a, // Vendor ID  [0x9ac4 = J. Westhues]
     0x8f, 0x4b, // Product ID [0x4b8f = Proxmark-3 RFID Instrument]
@@ -141,25 +147,23 @@ static const char cfgDescriptor[] = {
     // -----------------------------
     9,         // Length
     USB_DESCRIPTOR_CONFIGURATION, // Descriptor Type
-    (9 + 9 + 5 + 5 + 4 + 5 + 7 + 9 + 7 + 7), 0, // Total Length 2 EP + Control
-    2,         // Number of Interfaces
+    (9 + 8 + 9 + 5 + 4 + 5 + 5 + 7 + 9 + 7 + 7 + 8 + 9 + 9 + 9 + 7 + 6 + 6 + 9 + 9 + 9 + 5 + 9 + 5), 0, // Total Length 2 EP + Control
+    4,         // Number of Interfaces
     1,         // Index value of this Configuration (used in SetConfiguration from Host)
     0,         // Configuration string index
     _DEFAULT,      // Attributes 0xA0
     0xFA,      // Max Power consumption
 
-    // IAD to associate the one CDC interface
+    // IAD to associate the CDC interface
     // --------------------------------------
-    /*
-        8,         // Length
-        USB_DESCRIPTOR_IAD, // IAD_DESCRIPTOR (0x0B)
-        0,         // CDC_INT_INTERFACE NUMBER  (
-        2,         // IAD INTERFACE COUNT (two interfaces)
-        2,         // Function Class: CDC_CLASS
-        2,         // Function SubClass: ACM
-        1,         // Function Protocol: v.25term
-        0,         // iInterface
-    */
+    8,         // Length
+    USB_DESCRIPTOR_IAD, // Descriptor Type
+    0,         // First Interface Number
+    2,         // Number of Interfaces
+    2,         // Function Class: CDC_CLASS
+    2,         // Function SubClass: ACM
+    1,         // Function Protocol: v.25term
+    0,         // iInterface
 
     /* Interface 0 Descriptor */
     /* CDC Communication Class Interface Descriptor Requirement for Notification*/
@@ -176,26 +180,26 @@ static const char cfgDescriptor[] = {
 
     /* Header Functional Descriptor */
     5,         // Function Length
-    0x24,      // Descriptor type:    CS_INTERFACE
+    USB_DESCRIPTOR_CS_INTERFACE,      // Descriptor type
     0,         // Descriptor subtype: Header Functional Descriptor
     0x10, 0x01, // bcd CDC:1.1
 
     /* ACM Functional Descriptor */
     4,         // Function Length
-    0x24,      // Descriptor Type:    CS_INTERFACE
+    USB_DESCRIPTOR_CS_INTERFACE,      // Descriptor Type
     2,         // Descriptor Subtype: Abstract Control Management Functional Descriptor
     2,         // Capabilities        D1, Device supports the request combination of Set_Line_Coding, Set_Control_Line_State, Get_Line_Coding, and the notification Serial_State
 
     /* Union Functional Descriptor */
     5,         // Function Length
-    0x24,      // Descriptor Type:    CS_INTERFACE
+    USB_DESCRIPTOR_CS_INTERFACE,      // Descriptor Type
     6,         // Descriptor Subtype: Union Functional Descriptor
     0,         // MasterInterface:    Communication Class Interface
     1,         // SlaveInterface0:    Data Class Interface
 
     /* Call Management Functional Descriptor */
     5,         // Function Length
-    0x24,      // Descriptor Type:    CS_INTERFACE
+    USB_DESCRIPTOR_CS_INTERFACE,      // Descriptor Type
     1,         // Descriptor Subtype: Call Management Functional Descriptor
     0,         // Capabilities:       Device sends/receives call management information only over the Communication Class interface. Device does not handle call management itself
     1,         // Data Interface:     Data Class Interface
@@ -245,7 +249,130 @@ static const char cfgDescriptor[] = {
     _EP02_IN,                    // Endpoint Address:    Endpoint 02 - IN
     _BULK,                       // Attribute:           BULK
     AT91C_USB_EP_IN_SIZE, 0x00,      // MaxPacket Size:      64 bytes
-    0                            // Interval:            ignored for bulk
+    0,                           // Interval:            ignored for bulk
+
+    // IAD to associate the CDC interface
+    // --------------------------------------
+    8,         // Length
+    USB_DESCRIPTOR_IAD, // Descriptor Type
+    2,         // First Interface Number
+    2,         // Number of Interfaces
+    0,         // Function Class: CDC_CLASS
+    0,         // Function SubClass: ACM
+    0,         // Function Protocol: v.25term
+    0,         // iInterface
+
+    /* Interface 2 Descriptor */
+    /* Standard MIDI Streaming Interface Descriptor */
+    9,                         // Length
+    USB_DESCRIPTOR_INTERFACE, // Descriptor Type
+    2,                        // Interface Number
+    0,                        // Alternate Setting
+    0,                        // Number of Endpoints in this interface
+    1,                        // Interface Class code    (Audio Interface Class)
+    0,                        // Interface Subclass code (MIDISTREAMING)
+    0,                        // InterfaceProtocol
+    0,                        // iInterface
+
+    /* Header Functional Descriptor */
+    9,                           // Function Length
+    USB_DESCRIPTOR_CS_INTERFACE, // Descriptor Type
+    1,                           // Descriptor Subtype: Header Functional Descriptor
+    0x00, 0x01,             // bcd ADC:1.0
+    0x09, 0x00,             // Total length of class specific descriptors
+    1,                           // Number of streaming interfaces
+    3,                           // Associated MIDI streaming interface
+
+    /* Interface 3 Descriptor */
+    /* MIDI Streaming Interface */
+    9,                        // Length
+    USB_DESCRIPTOR_INTERFACE, // Descriptor Type
+    3,                        // Interface Number
+    0,                        // Alternate Setting
+    2,                        // Number of Endpoints in this interface
+    1,                        // Interface Class code    (Audio Interface Class)
+    3,                        // Interface Subclass code (MIDISTREAMING)
+    0,                        // InterfaceProtocol
+    0,                        // iInterface
+
+    /* Header Functional Descriptor */
+    7,                           // Function Length
+    USB_DESCRIPTOR_CS_INTERFACE, // Descriptor Type
+    1,                           // Descriptor Subtype: Header Functional Descriptor
+    0x00, 0x01,            // bcd MSC:1.0
+    0x41, 0x00,            // Total length of class specific descriptors
+
+    /* Embedded MIDI IN Jack Descriptor */
+    6,                           // Length
+    USB_DESCRIPTOR_CS_INTERFACE, // Descriptor Type
+    2,                           // Descriptor Subtype: MIDI_IN_JACK
+    1,                           // Jack Type:          EMBEDDED
+    1,                           // Jack ID
+    0,                           // iJack
+
+    /* External MIDI IN Jack Descriptor */
+    6,                           // Length
+    USB_DESCRIPTOR_CS_INTERFACE, // Descriptor Type
+    2,                           // Descriptor Subtype: MIDI_IN_JACK
+    2,                           // Jack Type:          EXTERNAL
+    2,                           // Jack ID
+    0,                           // iJack
+
+    /* Embedded MIDI OUT Jack Descriptor */
+    9,                           // Length
+    USB_DESCRIPTOR_CS_INTERFACE, // Descriptor Type
+    3,                           // Descriptor Subtype: MIDI_OUT_JACK
+    1,                           // Jack Type:          EMBEDDED
+    3,                           // Jack ID
+    1,                           // Number of Jack Input Pins
+    2,                           // baSourceID
+    1,                           // baSourcePin
+    0,                           // iJack
+
+    /* External MIDI OUT Jack Descriptor */
+    9,                           // Length
+    USB_DESCRIPTOR_CS_INTERFACE, // Descriptor Type
+    3,                           // Descriptor Subtype: MIDI_OUT_JACK
+    2,                           // Jack Type:          EXTERNAL
+    4,                           // Jack ID
+    1,                           // Number of Jack Input Pins
+    1,                           // baSourceID
+    1,                           // baSourcePin
+    0,                           // iJack
+
+    /* MIDI BULK IN Endpoint Descriptor */
+    9,                       // Length
+    USB_DESCRIPTOR_ENDPOINT, // Descriptor Type
+    _EP02_IN,                // Endpoint Address:    Endpoint 02 - IN
+    _BULK,                   // Attribute:           BULK
+    AT91C_USB_EP_IN_SIZE, 0x00, // MaxPacket Size:      64 bytes
+    0,                       // Interval:            ignored for bulk
+    0,                       // Refresh:             unused
+    0,                       // Sync Address:        unused
+
+    /* MIDI Streaming BULK IN Endpoint Descriptor */
+    5,                           // Length
+    USB_DESCRIPTOR_CS_INTERFACE, // Descriptor Type
+    1,                           // Descriptor Subtype: MS_GENERAL
+    1,                           // Number of Embedded MIDI OUT Jacks
+    3,                           // Associated Embedded MIDI OUT Jack
+
+    /* MIDI BULK OUT Endpoint Descriptor */
+    9,                       // Length
+    USB_DESCRIPTOR_ENDPOINT, // Descriptor Type
+    _EP01_OUT,                // Endpoint Address:    Endpoint 01 - OUT
+    _BULK,                   // Attribute:           BULK
+    AT91C_USB_EP_OUT_SIZE, 0x00, // MaxPacket Size:      64 bytes
+    0,                       // Interval:            ignored for bulk
+    0,                       // Refresh:             unused
+    0,                       // Sync Address:        unused
+
+    /* MIDI Streaming BULK OUT Endpoint Descriptor */
+    5,                           // Length
+    USB_DESCRIPTOR_CS_INTERFACE, // Descriptor Type
+    1,                           // Descriptor Subtype: MS_GENERAL
+    1,                           // Number of Embedded MIDI IN Jacks
+    1,                           // Associated Embedded MIDI IN Jack
 };
 
 // BOS descriptor
@@ -567,6 +694,11 @@ void usb_enable(void) {
 */
 static int usb_reconnect = 0;
 static int usb_configured = 0;
+#ifndef AS_BOOTROM
+static bool usb_midi = false;
+#else
+static const bool usb_midi = false;
+#endif // AS_BOOTROM
 void SetUSBreconnect(int value) {
     usb_reconnect = value;
 }
@@ -689,10 +821,45 @@ uint32_t usb_read(uint8_t *data, size_t len) {
 
             packetSize = (((pUdp->UDP_CSR[AT91C_EP_OUT] & AT91C_UDP_RXBYTECNT) >> 16) & 0x7FF);
             packetSize = MIN(packetSize, len);
-            len -= packetSize;
 
-            while (packetSize--) {
-                data[nbBytesRcv++] = pUdp->UDP_FDR[AT91C_EP_OUT];
+            if (usb_midi) {
+                while (packetSize) {
+                    // ASSUME: MIDI events are always aligned with packets
+                    // TODO: buffering before parsing
+                    uint8_t cin = pUdp->UDP_FDR[AT91C_EP_OUT] & 0xF;
+                    uint8_t midi_0 = pUdp->UDP_FDR[AT91C_EP_OUT];
+                    uint8_t midi_1 = pUdp->UDP_FDR[AT91C_EP_OUT];
+                    uint8_t midi_2 = pUdp->UDP_FDR[AT91C_EP_OUT];
+
+                    packetSize -= 4;
+
+                    switch (cin) {
+                        case 0x4:
+                        case 0x7:
+                            len -= 3;
+                            data[nbBytesRcv++] = midi_0;
+                            data[nbBytesRcv++] = midi_1;
+                            data[nbBytesRcv++] = midi_2;
+                            break;
+                        case 0x5:
+                            len -= 1;
+                            data[nbBytesRcv++] = midi_0;
+                            break;
+                        case 0x6:
+                            len -= 2;
+                            data[nbBytesRcv++] = midi_0;
+                            data[nbBytesRcv++] = midi_1;
+                            break;
+                        default:
+                            break;
+                    }
+                }
+            } else {
+                len -= packetSize;
+
+                while (packetSize--) {
+                    data[nbBytesRcv++] = pUdp->UDP_FDR[AT91C_EP_OUT];
+                }
             }
 
             // flip bank
@@ -722,6 +889,11 @@ uint32_t usb_read_ng(uint8_t *data, size_t len) {
 
     if (len == 0) {
         return 0;
+    }
+
+    if (usb_midi) {
+        // TODO: HACK
+        return usb_read(data, len);
     }
 
     uint8_t bank = btReceiveBank;
@@ -828,13 +1000,50 @@ int usb_write(const uint8_t *data, const size_t len) {
     }
 
     size_t length = len;
-    uint32_t cpt = 0;
+    uint32_t cpt = 0, nbBytesSnt = 0;;
 
     // send first chunk
-    cpt = MIN(length, AT91C_USB_EP_IN_SIZE);
-    length -= cpt;
-    while (cpt--) {
-        pUdp->UDP_FDR[AT91C_EP_IN] = *data++;
+    if (usb_midi) {
+        while (cpt < AT91C_USB_EP_IN_SIZE || length == 0) {
+            switch (length) {
+                case 0:
+                    break;
+                case 1:
+                    pUdp->UDP_FDR[AT91C_EP_IN] = 0x05;
+                    pUdp->UDP_FDR[AT91C_EP_IN] = *data++;
+                    pUdp->UDP_FDR[AT91C_EP_IN] = 0x00;
+                    pUdp->UDP_FDR[AT91C_EP_IN] = 0x00;
+                    nbBytesSnt += 4;
+                    break;
+                case 2:
+                    pUdp->UDP_FDR[AT91C_EP_IN] = 0x06;
+                    pUdp->UDP_FDR[AT91C_EP_IN] = *data++;
+                    pUdp->UDP_FDR[AT91C_EP_IN] = *data++;
+                    pUdp->UDP_FDR[AT91C_EP_IN] = 0x00;
+                    nbBytesSnt += 4;
+                    break;
+                case 3:
+                    pUdp->UDP_FDR[AT91C_EP_IN] = 0x07;
+                    pUdp->UDP_FDR[AT91C_EP_IN] = *data++;
+                    pUdp->UDP_FDR[AT91C_EP_IN] = *data++;
+                    pUdp->UDP_FDR[AT91C_EP_IN] = *data++;
+                    nbBytesSnt += 4;
+                    break;
+                default:
+                    pUdp->UDP_FDR[AT91C_EP_IN] = 0x04;
+                    pUdp->UDP_FDR[AT91C_EP_IN] = *data++;
+                    pUdp->UDP_FDR[AT91C_EP_IN] = *data++;
+                    pUdp->UDP_FDR[AT91C_EP_IN] = *data++;
+                    nbBytesSnt += 4;
+                    break;
+            }
+        }
+    } else {
+        cpt = MIN(length, AT91C_USB_EP_IN_SIZE);
+        length -= cpt;
+        while (cpt--) {
+            pUdp->UDP_FDR[AT91C_EP_IN] = *data++;
+        }
     }
 
     UDP_SET_EP_FLAGS(AT91C_EP_IN, AT91C_UDP_TXPKTRDY);
@@ -842,10 +1051,47 @@ int usb_write(const uint8_t *data, const size_t len) {
 
     while (length) {
         // Send next chunk
-        cpt = MIN(length, AT91C_USB_EP_IN_SIZE);
-        length -= cpt;
-        while (cpt--) {
-            pUdp->UDP_FDR[AT91C_EP_IN] = *data++;
+        if (usb_midi) {
+            while (cpt < AT91C_USB_EP_IN_SIZE || length == 0) {
+                switch (length) {
+                    case 0:
+                        break;
+                    case 1:
+                        pUdp->UDP_FDR[AT91C_EP_IN] = 0x05;
+                        pUdp->UDP_FDR[AT91C_EP_IN] = *data++;
+                        pUdp->UDP_FDR[AT91C_EP_IN] = 0x00;
+                        pUdp->UDP_FDR[AT91C_EP_IN] = 0x00;
+                        nbBytesSnt += 4;
+                        break;
+                    case 2:
+                        pUdp->UDP_FDR[AT91C_EP_IN] = 0x06;
+                        pUdp->UDP_FDR[AT91C_EP_IN] = *data++;
+                        pUdp->UDP_FDR[AT91C_EP_IN] = *data++;
+                        pUdp->UDP_FDR[AT91C_EP_IN] = 0x00;
+                        nbBytesSnt += 4;
+                        break;
+                    case 3:
+                        pUdp->UDP_FDR[AT91C_EP_IN] = 0x07;
+                        pUdp->UDP_FDR[AT91C_EP_IN] = *data++;
+                        pUdp->UDP_FDR[AT91C_EP_IN] = *data++;
+                        pUdp->UDP_FDR[AT91C_EP_IN] = *data++;
+                        nbBytesSnt += 4;
+                        break;
+                    default:
+                        pUdp->UDP_FDR[AT91C_EP_IN] = 0x04;
+                        pUdp->UDP_FDR[AT91C_EP_IN] = *data++;
+                        pUdp->UDP_FDR[AT91C_EP_IN] = *data++;
+                        pUdp->UDP_FDR[AT91C_EP_IN] = *data++;
+                        nbBytesSnt += 4;
+                        break;
+                }
+            }
+        } else {
+            cpt = MIN(length, AT91C_USB_EP_IN_SIZE);
+            length -= cpt;
+            while (cpt--) {
+                pUdp->UDP_FDR[AT91C_EP_IN] = *data++;
+            }
         }
 
         // Wait for previous chunk to be sent
@@ -874,7 +1120,11 @@ int usb_write(const uint8_t *data, const size_t len) {
     while (pUdp->UDP_CSR[AT91C_EP_IN] & AT91C_UDP_TXCOMP) {};
 
 
-    if (len % AT91C_USB_EP_IN_SIZE == 0) {
+    if (!usb_midi) {
+        nbBytesSnt = len;
+    }
+
+    if (nbBytesSnt % AT91C_USB_EP_IN_SIZE == 0) {
         // like AT91F_USB_SendZlp(), in non ping-pong mode
         UDP_SET_EP_FLAGS(AT91C_EP_IN, AT91C_UDP_TXPKTRDY);
         while (!(pUdp->UDP_CSR[AT91C_EP_IN] & AT91C_UDP_TXCOMP)) {};
@@ -926,7 +1176,14 @@ int async_usb_write_start(void) {
  *----------------------------------------------------------------------------
 */
 inline void async_usb_write_pushByte(uint8_t data) {
-    pUdp->UDP_FDR[AT91C_EP_IN] = data;
+    if (usb_midi) {
+        pUdp->UDP_FDR[AT91C_EP_IN] = 0x05;
+        pUdp->UDP_FDR[AT91C_EP_IN] = data;
+        pUdp->UDP_FDR[AT91C_EP_IN] = 0x00;
+        pUdp->UDP_FDR[AT91C_EP_IN] = 0x00;
+    } else {
+        pUdp->UDP_FDR[AT91C_EP_IN] = data;
+    }
     isAsyncRequestFinished = false;
 }
 
@@ -1239,6 +1496,9 @@ void AT91F_CDC_Enumerate(void) {
 
         // handle CDC class requests
         case SET_LINE_CODING: {
+#ifndef AS_BOOTROM
+            usb_midi = false;
+#endif // AS_BOOTROM
             /*
                 uint8_t i;
                 for ( i = 0 ; i < 7 ; i++ )  {
@@ -1251,12 +1511,31 @@ void AT91F_CDC_Enumerate(void) {
             break;
         }
         case GET_LINE_CODING:
+#ifndef AS_BOOTROM
+            usb_midi = false;
+#endif // AS_BOOTROM
             AT91F_USB_SendData(pUdp, (char *) &line, MIN(sizeof(line), wLength));
             break;
         case SET_CONTROL_LINE_STATE:
+#ifndef AS_BOOTROM
+            usb_midi = false;
+#endif // AS_BOOTROM
             btConnection = wValue;
             AT91F_USB_SendZlp(pUdp);
             break;
+
+#ifndef AS_BOOTROM
+        // handle MIDI class requests
+        case MIDI_GET_STATUS:
+            usb_midi = true;
+            AT91F_USB_SendZlp(pUdp);
+            break;
+        case MIDI_BULK_GET_STATUS:
+            usb_midi = true;
+            AT91F_USB_SendZlp(pUdp);
+            break;
+#endif // AS_BOOTROM
+
         default:
             AT91F_USB_SendStall(pUdp);
             break;
