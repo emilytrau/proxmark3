@@ -37,6 +37,17 @@ AT91SAM7S256  USB Device Port
 #define AT91C_EP_IN             2  // cfg bulk in
 #define AT91C_EP_NOTIFY         3  // cfg cdc notification interrupt
 
+#define AT91C_EP_MIDI_OUT       AT91C_EP_IN  // midi bulk out
+#define AT91C_EP_MIDI_IN        AT91C_EP_OUT  // midi bulk in
+
+#ifdef AS_BOOTROM
+#define CDC_COMMUNICATION_INTERFACE 0
+#define CDC_DATA_INTERFACE          1
+#else
+#define CDC_COMMUNICATION_INTERFACE 2
+#define CDC_DATA_INTERFACE          3
+#endif
+
 // The endpoint size is defined in usb_cdc.h
 
 // Section: USB Descriptors
@@ -128,9 +139,15 @@ static const char devDescriptor[] = {
     0x12,      // Length
     USB_DESCRIPTOR_DEVICE,      // Descriptor Type (DEVICE)
     0x00, 0x02, // Complies with USB Spec. Release (0200h = release 2.00)  0210 == release 2.10
+#ifdef AS_BOOTROM
+    2,      // Device Class:    Communication Device Class
+    0,      // Device Subclass: CDC class sub code ACM [ice 0x02 = win10 virtual comport ]
+    0,      // Device Protocol: CDC Device protocol (unused)
+#else
     0xEF,   // Device Class:    Miscellaneous
     2,      // Device Subclass: Interface Association Descriptor
     1,      // Device Protocol: Interface Association Descriptor
+#endif
     AT91C_USB_EP_CONTROL_SIZE,      // MaxPacketSize0
     0xc4, 0x9a, // Vendor ID  [0x9ac4 = J. Westhues]
     0x8f, 0x4b, // Product ID [0x4b8f = Proxmark-3 RFID Instrument]
@@ -142,131 +159,28 @@ static const char devDescriptor[] = {
 };
 
 static const char cfgDescriptor[] = {
-
     /* Configuration 1 descriptor */
     // -----------------------------
     9,         // Length
     USB_DESCRIPTOR_CONFIGURATION, // Descriptor Type
-    (9 + 8 + 9 + 5 + 4 + 5 + 5 + 7 + 9 + 7 + 7 + 8 + 9 + 9 + 9 + 7 + 6 + 6 + 9 + 9 + 9 + 5 + 9 + 5), 0, // Total Length 2 EP + Control
+#ifdef AS_BOOTROM
+    (9 + 9 + 5 + 4 + 5 + 5 + 7 + 9 + 7 + 7), 0, // Total Length 2 EP + Control
+    2,         // Number of Interfaces
+#else
+    (9 + 9 + 9 + 9 + 7 + 6 + 6 + 9 + 9 + 9 + 5 + 9 + 5 + 8 + 9 + 5 + 4 + 5 + 5 + 7 + 9 + 7 + 7), 0, // Total Length 2 EP + Control
     4,         // Number of Interfaces
+#endif
     1,         // Index value of this Configuration (used in SetConfiguration from Host)
     0,         // Configuration string index
     _DEFAULT,      // Attributes 0xA0
     0xFA,      // Max Power consumption
 
-    // IAD to associate the CDC interface
-    // --------------------------------------
-    8,         // Length
-    USB_DESCRIPTOR_IAD, // Descriptor Type
-    0,         // First Interface Number
-    2,         // Number of Interfaces
-    2,         // Function Class: CDC_CLASS
-    2,         // Function SubClass: ACM
-    1,         // Function Protocol: v.25term
-    0,         // iInterface
-
+#ifndef AS_BOOTROM
     /* Interface 0 Descriptor */
-    /* CDC Communication Class Interface Descriptor Requirement for Notification*/
-    // -----------------------------------------------------------
-    9,         // Length
-    USB_DESCRIPTOR_INTERFACE, // Descriptor Type
-    0,         // Interface Number
-    0,         // Alternate Setting
-    1,         // Number of Endpoints in this interface
-    2,         // Interface Class code    (Communication Interface Class)
-    2,         // Interface Subclass code (Abstract Control Model)
-    1,         // InterfaceProtocol       (Common AT Commands, V.25term)
-    0,         // iInterface
-
-    /* Header Functional Descriptor */
-    5,         // Function Length
-    USB_DESCRIPTOR_CS_INTERFACE,      // Descriptor type
-    0,         // Descriptor subtype: Header Functional Descriptor
-    0x10, 0x01, // bcd CDC:1.1
-
-    /* ACM Functional Descriptor */
-    4,         // Function Length
-    USB_DESCRIPTOR_CS_INTERFACE,      // Descriptor Type
-    2,         // Descriptor Subtype: Abstract Control Management Functional Descriptor
-    2,         // Capabilities        D1, Device supports the request combination of Set_Line_Coding, Set_Control_Line_State, Get_Line_Coding, and the notification Serial_State
-
-    /* Union Functional Descriptor */
-    5,         // Function Length
-    USB_DESCRIPTOR_CS_INTERFACE,      // Descriptor Type
-    6,         // Descriptor Subtype: Union Functional Descriptor
-    0,         // MasterInterface:    Communication Class Interface
-    1,         // SlaveInterface0:    Data Class Interface
-
-    /* Call Management Functional Descriptor */
-    5,         // Function Length
-    USB_DESCRIPTOR_CS_INTERFACE,      // Descriptor Type
-    1,         // Descriptor Subtype: Call Management Functional Descriptor
-    0,         // Capabilities:       Device sends/receives call management information only over the Communication Class interface. Device does not handle call management itself
-    1,         // Data Interface:     Data Class Interface
-
-    /* Protocol Functional Descriptor */
-    /*
-    6,
-    0x24,      // Descriptor Type: CS_INTERFACE
-    0x0B,      // Descriptor Subtype: Protocol Unit functional Descriptor
-    0xDD,      // constant uniq ID of unit
-    0xFE,      // protocol
-    */
-
-    /* CDC Notification Endpoint descriptor */
-    // ---------------------------------------
-    7,                           // Length
-    USB_DESCRIPTOR_ENDPOINT,     // Descriptor Type
-    _EP03_IN,                    // EndpointAddress:   Endpoint 03 - IN
-    _INTERRUPT,                  // Attributes
-    AT91C_USB_EP_CONTROL_SIZE, 0x00, // MaxPacket Size:    EP0 - 8
-    0xFF,                        // Interval polling
-
-
-    /* Interface 1 Descriptor */
-    /* CDC Data Class Interface 1 Descriptor Requirement */
-    9,                           // Length
-    USB_DESCRIPTOR_INTERFACE,    // Descriptor Type
-    1,                           // Interface Number
-    0,                           // Alternate Setting
-    2,                           // Number of Endpoints
-    0x0A,                        // Interface Class:     CDC Data interface class
-    0,                           // Interface Subclass:  not used
-    0,                           // Interface Protocol:  No class specific protocol required (usb spec)
-    0,                           // Interface
-
-    /* Endpoint descriptor */
-    7,                           // Length
-    USB_DESCRIPTOR_ENDPOINT,     // Descriptor Type
-    _EP01_OUT,                   // Endpoint Address:    Endpoint 01 - OUT
-    _BULK,                       // Attributes:          BULK
-    AT91C_USB_EP_OUT_SIZE, 0x00,     // MaxPacket Size:      64 bytes
-    0,                           // Interval:            ignored for bulk
-
-    /* Endpoint descriptor */
-    7,                           // Length
-    USB_DESCRIPTOR_ENDPOINT,     // Descriptor Type
-    _EP02_IN,                    // Endpoint Address:    Endpoint 02 - IN
-    _BULK,                       // Attribute:           BULK
-    AT91C_USB_EP_IN_SIZE, 0x00,      // MaxPacket Size:      64 bytes
-    0,                           // Interval:            ignored for bulk
-
-    // IAD to associate the CDC interface
-    // --------------------------------------
-    8,         // Length
-    USB_DESCRIPTOR_IAD, // Descriptor Type
-    2,         // First Interface Number
-    2,         // Number of Interfaces
-    0,         // Function Class: CDC_CLASS
-    0,         // Function SubClass: ACM
-    0,         // Function Protocol: v.25term
-    0,         // iInterface
-
-    /* Interface 2 Descriptor */
     /* Standard MIDI Streaming Interface Descriptor */
     9,                         // Length
     USB_DESCRIPTOR_INTERFACE, // Descriptor Type
-    2,                        // Interface Number
+    0,                        // Interface Number
     0,                        // Alternate Setting
     0,                        // Number of Endpoints in this interface
     1,                        // Interface Class code    (Audio Interface Class)
@@ -281,13 +195,13 @@ static const char cfgDescriptor[] = {
     0x00, 0x01,             // bcd ADC:1.0
     0x09, 0x00,             // Total length of class specific descriptors
     1,                           // Number of streaming interfaces
-    3,                           // Associated MIDI streaming interface
+    1,                           // Associated MIDI streaming interface
 
-    /* Interface 3 Descriptor */
-    /* MIDI Streaming Interface */
+    /* Interface 1 Descriptor */
+    /* MIDI Streaming Interface Descriptor */
     9,                        // Length
     USB_DESCRIPTOR_INTERFACE, // Descriptor Type
-    3,                        // Interface Number
+    1,                        // Interface Number
     0,                        // Alternate Setting
     2,                        // Number of Endpoints in this interface
     1,                        // Interface Class code    (Audio Interface Class)
@@ -343,7 +257,7 @@ static const char cfgDescriptor[] = {
     /* MIDI BULK IN Endpoint Descriptor */
     9,                       // Length
     USB_DESCRIPTOR_ENDPOINT, // Descriptor Type
-    _EP02_IN,                // Endpoint Address:    Endpoint 02 - IN
+    _EP01_IN,                // Endpoint Address:    Endpoint 02 - IN
     _BULK,                   // Attribute:           BULK
     AT91C_USB_EP_IN_SIZE, 0x00, // MaxPacket Size:      64 bytes
     0,                       // Interval:            ignored for bulk
@@ -360,7 +274,7 @@ static const char cfgDescriptor[] = {
     /* MIDI BULK OUT Endpoint Descriptor */
     9,                       // Length
     USB_DESCRIPTOR_ENDPOINT, // Descriptor Type
-    _EP01_OUT,                // Endpoint Address:    Endpoint 01 - OUT
+    _EP02_OUT,                // Endpoint Address:    Endpoint 01 - OUT
     _BULK,                   // Attribute:           BULK
     AT91C_USB_EP_OUT_SIZE, 0x00, // MaxPacket Size:      64 bytes
     0,                       // Interval:            ignored for bulk
@@ -373,6 +287,105 @@ static const char cfgDescriptor[] = {
     1,                           // Descriptor Subtype: MS_GENERAL
     1,                           // Number of Embedded MIDI IN Jacks
     1,                           // Associated Embedded MIDI IN Jack
+
+    // IAD to associate the CDC interface
+    // --------------------------------------
+    8,         // Length
+    USB_DESCRIPTOR_IAD, // Descriptor Type
+    2,         // First Interface Number
+    2,         // Number of Interfaces
+    2,         // Function Class: CDC_CLASS
+    2,         // Function SubClass: ACM
+    1,         // Function Protocol: v.25term
+    0,         // iInterface
+
+#endif // AS_BOOTROM
+
+    /* Interface 2 Descriptor */
+    /* CDC Communication Class Interface Descriptor Requirement for Notification*/
+    // -----------------------------------------------------------
+    9,         // Length
+    USB_DESCRIPTOR_INTERFACE, // Descriptor Type
+    CDC_COMMUNICATION_INTERFACE, // Interface Number
+    0,         // Alternate Setting
+    1,         // Number of Endpoints in this interface
+    2,         // Interface Class code    (Communication Interface Class)
+    2,         // Interface Subclass code (Abstract Control Model)
+    1,         // InterfaceProtocol       (Common AT Commands, V.25term)
+    0,         // iInterface
+
+    /* Header Functional Descriptor */
+    5,         // Function Length
+    USB_DESCRIPTOR_CS_INTERFACE,      // Descriptor type
+    0,         // Descriptor subtype: Header Functional Descriptor
+    0x10, 0x01, // bcd CDC:1.1
+
+    /* ACM Functional Descriptor */
+    4,         // Function Length
+    USB_DESCRIPTOR_CS_INTERFACE,      // Descriptor Type
+    2,         // Descriptor Subtype: Abstract Control Management Functional Descriptor
+    2,         // Capabilities        D1, Device supports the request combination of Set_Line_Coding, Set_Control_Line_State, Get_Line_Coding, and the notification Serial_State
+
+    /* Union Functional Descriptor */
+    5,         // Function Length
+    USB_DESCRIPTOR_CS_INTERFACE,      // Descriptor Type
+    6,         // Descriptor Subtype: Union Functional Descriptor
+    CDC_COMMUNICATION_INTERFACE, // MasterInterface:    Communication Class Interface
+    CDC_DATA_INTERFACE,          // SlaveInterface0:    Data Class Interface
+
+    /* Call Management Functional Descriptor */
+    5,         // Function Length
+    USB_DESCRIPTOR_CS_INTERFACE,      // Descriptor Type
+    1,         // Descriptor Subtype: Call Management Functional Descriptor
+    0,         // Capabilities:       Device sends/receives call management information only over the Communication Class interface. Device does not handle call management itself
+    1,         // Data Interface:     Data Class Interface
+
+    /* Protocol Functional Descriptor */
+    /*
+    6,
+    0x24,      // Descriptor Type: CS_INTERFACE
+    0x0B,      // Descriptor Subtype: Protocol Unit functional Descriptor
+    0xDD,      // constant uniq ID of unit
+    0xFE,      // protocol
+    */
+
+    /* CDC Notification Endpoint descriptor */
+    // ---------------------------------------
+    7,                           // Length
+    USB_DESCRIPTOR_ENDPOINT,     // Descriptor Type
+    _EP03_IN,                    // EndpointAddress:   Endpoint 03 - IN
+    _INTERRUPT,                  // Attributes
+    AT91C_USB_EP_CONTROL_SIZE, 0x00, // MaxPacket Size:    EP0 - 8
+    0xFF,                        // Interval polling
+
+
+    /* Interface 3 Descriptor */
+    /* CDC Data Class Interface 1 Descriptor Requirement */
+    9,                           // Length
+    USB_DESCRIPTOR_INTERFACE,    // Descriptor Type
+    CDC_DATA_INTERFACE,                           // Interface Number
+    0,                           // Alternate Setting
+    2,                           // Number of Endpoints
+    0x0A,                        // Interface Class:     CDC Data interface class
+    0,                           // Interface Subclass:  not used
+    0,                           // Interface Protocol:  No class specific protocol required (usb spec)
+    0,                           // Interface
+
+    /* Endpoint descriptor */
+    7,                           // Length
+    USB_DESCRIPTOR_ENDPOINT,     // Descriptor Type
+    _EP01_OUT,                   // Endpoint Address:    Endpoint 01 - OUT
+    _BULK,                       // Attributes:          BULK
+    AT91C_USB_EP_OUT_SIZE, 0x00,     // MaxPacket Size:      64 bytes
+    0,                           // Interval:            ignored for bulk
+
+    /* Endpoint descriptor */
+    7,                           // Length
+    USB_DESCRIPTOR_ENDPOINT,     // Descriptor Type
+    _EP02_IN,                    // Endpoint Address:    Endpoint 02 - IN
+    _BULK,                       // Attribute:           BULK
+    AT91C_USB_EP_IN_SIZE, 0x00,      // MaxPacket Size:      64 bytes
+    0,                           // Interval:            ignored for bulk
 };
 
 // BOS descriptor
@@ -796,6 +809,13 @@ bool usb_poll_validate_length(void) {
     return (((pUdp->UDP_CSR[AT91C_EP_OUT] & AT91C_UDP_RXBYTECNT) >> 16) > 0);
 }
 
+static uint32_t hex_to_int(char byte) {
+    if (byte >= '0' && byte <= '9') byte = byte - '0';
+    else if (byte >= 'a' && byte <='f') byte = byte - 'a' + 10;
+    else if (byte >= 'A' && byte <='F') byte = byte - 'A' + 10;    
+    return byte & 0xF;
+}
+
 /*
  *----------------------------------------------------------------------------
  * \fn    usb_read
@@ -817,49 +837,113 @@ uint32_t usb_read(uint8_t *data, size_t len) {
             break;
         }
 
-        if (pUdp->UDP_CSR[AT91C_EP_OUT] & bank) {
+        if (usb_midi) {
+            if (pUdp->UDP_CSR[AT91C_EP_MIDI_OUT] & bank) {
+                packetSize = (((pUdp->UDP_CSR[AT91C_EP_MIDI_OUT] & AT91C_UDP_RXBYTECNT) >> 16) & 0x7FF);
+                bool in_sysex = false;
+                bool sysex_half = false;
 
-            packetSize = (((pUdp->UDP_CSR[AT91C_EP_OUT] & AT91C_UDP_RXBYTECNT) >> 16) & 0x7FF);
-            packetSize = MIN(packetSize, len);
-
-            if (usb_midi) {
                 while (packetSize) {
                     // ASSUME: MIDI events are always aligned with packets
                     // TODO: buffering before parsing
-                    uint8_t cin = pUdp->UDP_FDR[AT91C_EP_OUT] & 0xF;
-                    uint8_t midi_0 = pUdp->UDP_FDR[AT91C_EP_OUT];
-                    uint8_t midi_1 = pUdp->UDP_FDR[AT91C_EP_OUT];
-                    uint8_t midi_2 = pUdp->UDP_FDR[AT91C_EP_OUT];
+                    uint8_t cin = pUdp->UDP_FDR[AT91C_EP_MIDI_OUT] & 0xF;
+                    uint8_t midi_0 = pUdp->UDP_FDR[AT91C_EP_MIDI_OUT];
+                    uint8_t midi_1 = pUdp->UDP_FDR[AT91C_EP_MIDI_OUT];
+                    uint8_t midi_2 = pUdp->UDP_FDR[AT91C_EP_MIDI_OUT];
 
                     packetSize -= 4;
 
                     switch (cin) {
                         case 0x4:
-                        case 0x7:
-                            len -= 3;
-                            data[nbBytesRcv++] = midi_0;
-                            data[nbBytesRcv++] = midi_1;
-                            data[nbBytesRcv++] = midi_2;
-                            break;
-                        case 0x5:
+                            if (!in_sysex) {
+                                if (midi_0 != 0xF0 || sysex_half) {
+                                    return PM3_EIO;
+                                }
+
+                                in_sysex = true;
+                                data[nbBytesRcv++] = (hex_to_int(midi_1) << 4) | hex_to_int(midi_2);
+                                len -= 1;
+                                break;
+                            }
+
+                            if (sysex_half) {
+                                data[nbBytesRcv++] |= hex_to_int(midi_0);
+                                data[nbBytesRcv++] = (hex_to_int(midi_1) << 4) | hex_to_int(midi_2);
+
+                                len -= 1;
+                                sysex_half = false;
+                            } else {
+                                data[nbBytesRcv++] = (hex_to_int(midi_0) << 4) | hex_to_int(midi_1);
+                                data[nbBytesRcv] = hex_to_int(midi_2) << 4;
+
+                                sysex_half = true;
+                            }
                             len -= 1;
-                            data[nbBytesRcv++] = midi_0;
                             break;
+
+                        case 0x7:
+                            if (midi_2 != 0xF7) {
+                                return PM3_EIO;
+                            }
+
+                            if (!in_sysex || sysex_half) {
+                                // Either unterminated or terminated at half byte
+                                return PM3_EIO;
+                            }
+
+                            data[nbBytesRcv++] = (hex_to_int(midi_0) << 4) | hex_to_int(midi_1);
+                            len -= 1;
+                            break;
+
                         case 0x6:
-                            len -= 2;
-                            data[nbBytesRcv++] = midi_0;
-                            data[nbBytesRcv++] = midi_1;
+                            if (midi_1 != 0xF7) {
+                                return PM3_EIO;
+                            }
+
+                            if (!in_sysex) {
+                                if (midi_0 != 0xF0) {
+                                    return PM3_EIO;
+                                }
+
+                                break;
+                            }
+
+                            if (!sysex_half) {
+                                return PM3_EIO;
+                            }
+
+                            data[nbBytesRcv++] |= hex_to_int(midi_0);
+                            len -= 1;
+                            break;
+
+                        case 0x5:
+                            if (!in_sysex || midi_0 != 0xF7) {
+                                return PM3_EIO;
+                            }
+
                             break;
                         default:
                             break;
                     }
                 }
-            } else {
-                len -= packetSize;
+            }
 
-                while (packetSize--) {
-                    data[nbBytesRcv++] = pUdp->UDP_FDR[AT91C_EP_OUT];
-                }
+            // flip bank
+            UDP_CLEAR_EP_FLAGS(AT91C_EP_MIDI_OUT, bank)
+
+            if (bank == AT91C_UDP_RX_DATA_BK0) {
+                bank = AT91C_UDP_RX_DATA_BK1;
+            } else {
+                bank = AT91C_UDP_RX_DATA_BK0;
+            }
+        } else {
+            packetSize = (((pUdp->UDP_CSR[AT91C_EP_OUT] & AT91C_UDP_RXBYTECNT) >> 16) & 0x7FF);
+            packetSize = MIN(packetSize, len);
+
+            len -= packetSize;
+
+            while (packetSize--) {
+                data[nbBytesRcv++] = pUdp->UDP_FDR[AT91C_EP_OUT];
             }
 
             // flip bank
@@ -978,6 +1062,100 @@ uint32_t usb_read_ng(uint8_t *data, size_t len) {
     return nbBytesRcv;
 }
 
+static const char HEX_TABLE[] = "0123456789ABCDEF";
+
+static bool usb_midi_write_chunk(const uint8_t **data, size_t* len, uint32_t* nbBytesSnt, bool start, bool* half) {
+    uint32_t cpt = 0;
+
+    if (start) {
+        switch (*len) {
+            case 0:
+                pUdp->UDP_FDR[AT91C_EP_MIDI_IN] = 0x06;
+                pUdp->UDP_FDR[AT91C_EP_MIDI_IN] = 0xF0;
+                pUdp->UDP_FDR[AT91C_EP_MIDI_IN] = 0xF7;
+                pUdp->UDP_FDR[AT91C_EP_MIDI_IN] = 0x00;
+
+                *nbBytesSnt += 4;
+                return true;
+            default: {
+                char c = *(*data)++;
+                pUdp->UDP_FDR[AT91C_EP_MIDI_IN] = 0x04;
+                pUdp->UDP_FDR[AT91C_EP_MIDI_IN] = 0xF0;
+                pUdp->UDP_FDR[AT91C_EP_MIDI_IN] = HEX_TABLE[(c >> 4) & 0xF];
+                pUdp->UDP_FDR[AT91C_EP_MIDI_IN] = HEX_TABLE[c & 0xF];
+
+                *len -= 1;
+                *half = false;
+                cpt += 4;
+                break;
+            }
+        }
+    }
+
+    bool done = false;
+    while (cpt < AT91C_USB_EP_IN_SIZE && !done) {
+        switch (*len) {
+            case 0:
+                pUdp->UDP_FDR[AT91C_EP_MIDI_IN] = 0x05;
+                pUdp->UDP_FDR[AT91C_EP_MIDI_IN] = 0xF7;
+                pUdp->UDP_FDR[AT91C_EP_MIDI_IN] = 0x00;
+                pUdp->UDP_FDR[AT91C_EP_MIDI_IN] = 0x00;
+
+                cpt += 4;
+                done = true;
+                break;
+            case 1: {
+                char c = *(*data)++;
+                if (*half) {
+                    pUdp->UDP_FDR[AT91C_EP_MIDI_IN] = 0x06;
+                    pUdp->UDP_FDR[AT91C_EP_MIDI_IN] = HEX_TABLE[c & 0xF];
+                    pUdp->UDP_FDR[AT91C_EP_MIDI_IN] = 0xF7;
+                    pUdp->UDP_FDR[AT91C_EP_MIDI_IN] = 0x00;
+                    *half = false;
+                } else {
+                    pUdp->UDP_FDR[AT91C_EP_MIDI_IN] = 0x07;
+                    pUdp->UDP_FDR[AT91C_EP_MIDI_IN] = HEX_TABLE[(c >> 4) & 0xF];
+                    pUdp->UDP_FDR[AT91C_EP_MIDI_IN] = HEX_TABLE[c & 0xF];
+                    pUdp->UDP_FDR[AT91C_EP_MIDI_IN] = 0xF7;
+                }
+
+                *len -= 1;
+                cpt += 4;
+                done = true;
+                break;
+            }
+            default: {
+                char c1 = *(*data)++;
+                char c2 = **data;
+
+                if (*half) {
+                    pUdp->UDP_FDR[AT91C_EP_MIDI_IN] = 0x04;
+                    pUdp->UDP_FDR[AT91C_EP_MIDI_IN] = HEX_TABLE[c1 & 0xF];
+                    pUdp->UDP_FDR[AT91C_EP_MIDI_IN] = HEX_TABLE[(c2 >> 4) & 0xF];
+                    pUdp->UDP_FDR[AT91C_EP_MIDI_IN] = HEX_TABLE[c2 & 0xF];
+
+                    *len -= 1;
+                    *half = false;
+                } else {
+                    pUdp->UDP_FDR[AT91C_EP_MIDI_IN] = 0x04;
+                    pUdp->UDP_FDR[AT91C_EP_MIDI_IN] = HEX_TABLE[(c1 >> 4) & 0xF];
+                    pUdp->UDP_FDR[AT91C_EP_MIDI_IN] = HEX_TABLE[c1 & 0xF];
+                    pUdp->UDP_FDR[AT91C_EP_MIDI_IN] = HEX_TABLE[(c2 >> 4) & 0xF];
+
+                    *half = true;
+                }
+
+                *len -= 1;
+                cpt += 4;
+                break;
+            }
+        }
+    }
+
+    *nbBytesSnt += cpt;
+    return done;
+}
+
 /*
  *----------------------------------------------------------------------------
  * \fn    usb_write
@@ -994,50 +1172,21 @@ int usb_write(const uint8_t *data, const size_t len) {
         return PM3_EIO;
     }
 
+    uint8_t pin = (usb_midi) ? AT91C_EP_MIDI_IN : AT91C_EP_IN;
+
     // can we write?
-    if ((pUdp->UDP_CSR[AT91C_EP_IN] & AT91C_UDP_TXPKTRDY) != 0) {
+    if ((pUdp->UDP_CSR[pin] & AT91C_UDP_TXPKTRDY) != 0) {
         return PM3_EIO;
     }
 
     size_t length = len;
-    uint32_t cpt = 0, nbBytesSnt = 0;;
+    uint32_t cpt = 0, nbBytesSnt = 0;
+    bool sysex_complete = false;
+    bool sysex_half = false;
 
     // send first chunk
     if (usb_midi) {
-        while (cpt < AT91C_USB_EP_IN_SIZE || length == 0) {
-            switch (length) {
-                case 0:
-                    break;
-                case 1:
-                    pUdp->UDP_FDR[AT91C_EP_IN] = 0x05;
-                    pUdp->UDP_FDR[AT91C_EP_IN] = *data++;
-                    pUdp->UDP_FDR[AT91C_EP_IN] = 0x00;
-                    pUdp->UDP_FDR[AT91C_EP_IN] = 0x00;
-                    nbBytesSnt += 4;
-                    break;
-                case 2:
-                    pUdp->UDP_FDR[AT91C_EP_IN] = 0x06;
-                    pUdp->UDP_FDR[AT91C_EP_IN] = *data++;
-                    pUdp->UDP_FDR[AT91C_EP_IN] = *data++;
-                    pUdp->UDP_FDR[AT91C_EP_IN] = 0x00;
-                    nbBytesSnt += 4;
-                    break;
-                case 3:
-                    pUdp->UDP_FDR[AT91C_EP_IN] = 0x07;
-                    pUdp->UDP_FDR[AT91C_EP_IN] = *data++;
-                    pUdp->UDP_FDR[AT91C_EP_IN] = *data++;
-                    pUdp->UDP_FDR[AT91C_EP_IN] = *data++;
-                    nbBytesSnt += 4;
-                    break;
-                default:
-                    pUdp->UDP_FDR[AT91C_EP_IN] = 0x04;
-                    pUdp->UDP_FDR[AT91C_EP_IN] = *data++;
-                    pUdp->UDP_FDR[AT91C_EP_IN] = *data++;
-                    pUdp->UDP_FDR[AT91C_EP_IN] = *data++;
-                    nbBytesSnt += 4;
-                    break;
-            }
-        }
+        sysex_complete = usb_midi_write_chunk(&data, &length, &nbBytesSnt, true, &sysex_half);
     } else {
         cpt = MIN(length, AT91C_USB_EP_IN_SIZE);
         length -= cpt;
@@ -1046,46 +1195,13 @@ int usb_write(const uint8_t *data, const size_t len) {
         }
     }
 
-    UDP_SET_EP_FLAGS(AT91C_EP_IN, AT91C_UDP_TXPKTRDY);
-    while (!(pUdp->UDP_CSR[AT91C_EP_IN] & AT91C_UDP_TXPKTRDY)) {};
+    UDP_SET_EP_FLAGS(pin, AT91C_UDP_TXPKTRDY);
+    while (!(pUdp->UDP_CSR[pin] & AT91C_UDP_TXPKTRDY)) {};
 
-    while (length) {
+    while (length || (usb_midi && !sysex_complete)) {
         // Send next chunk
         if (usb_midi) {
-            while (cpt < AT91C_USB_EP_IN_SIZE || length == 0) {
-                switch (length) {
-                    case 0:
-                        break;
-                    case 1:
-                        pUdp->UDP_FDR[AT91C_EP_IN] = 0x05;
-                        pUdp->UDP_FDR[AT91C_EP_IN] = *data++;
-                        pUdp->UDP_FDR[AT91C_EP_IN] = 0x00;
-                        pUdp->UDP_FDR[AT91C_EP_IN] = 0x00;
-                        nbBytesSnt += 4;
-                        break;
-                    case 2:
-                        pUdp->UDP_FDR[AT91C_EP_IN] = 0x06;
-                        pUdp->UDP_FDR[AT91C_EP_IN] = *data++;
-                        pUdp->UDP_FDR[AT91C_EP_IN] = *data++;
-                        pUdp->UDP_FDR[AT91C_EP_IN] = 0x00;
-                        nbBytesSnt += 4;
-                        break;
-                    case 3:
-                        pUdp->UDP_FDR[AT91C_EP_IN] = 0x07;
-                        pUdp->UDP_FDR[AT91C_EP_IN] = *data++;
-                        pUdp->UDP_FDR[AT91C_EP_IN] = *data++;
-                        pUdp->UDP_FDR[AT91C_EP_IN] = *data++;
-                        nbBytesSnt += 4;
-                        break;
-                    default:
-                        pUdp->UDP_FDR[AT91C_EP_IN] = 0x04;
-                        pUdp->UDP_FDR[AT91C_EP_IN] = *data++;
-                        pUdp->UDP_FDR[AT91C_EP_IN] = *data++;
-                        pUdp->UDP_FDR[AT91C_EP_IN] = *data++;
-                        nbBytesSnt += 4;
-                        break;
-                }
-            }
+            sysex_complete = usb_midi_write_chunk(&data, &length, &nbBytesSnt, false, &sysex_half);
         } else {
             cpt = MIN(length, AT91C_USB_EP_IN_SIZE);
             length -= cpt;
@@ -1096,28 +1212,28 @@ int usb_write(const uint8_t *data, const size_t len) {
 
         // Wait for previous chunk to be sent
         // (iceman) when is the bankswapping done?
-        while (!(pUdp->UDP_CSR[AT91C_EP_IN] & AT91C_UDP_TXCOMP)) {
+        while (!(pUdp->UDP_CSR[pin] & AT91C_UDP_TXCOMP)) {
             if (usb_check() == false) {
                 return PM3_EIO;
             }
         }
 
-        UDP_CLEAR_EP_FLAGS(AT91C_EP_IN, AT91C_UDP_TXCOMP);
-        while (pUdp->UDP_CSR[AT91C_EP_IN] & AT91C_UDP_TXCOMP) {};
+        UDP_CLEAR_EP_FLAGS(pin, AT91C_UDP_TXCOMP);
+        while (pUdp->UDP_CSR[pin] & AT91C_UDP_TXCOMP) {};
 
-        UDP_SET_EP_FLAGS(AT91C_EP_IN, AT91C_UDP_TXPKTRDY);
-        while (!(pUdp->UDP_CSR[AT91C_EP_IN] & AT91C_UDP_TXPKTRDY)) {};
+        UDP_SET_EP_FLAGS(pin, AT91C_UDP_TXPKTRDY);
+        while (!(pUdp->UDP_CSR[pin] & AT91C_UDP_TXPKTRDY)) {};
     }
 
     // Wait for the end of transfer
-    while (!(pUdp->UDP_CSR[AT91C_EP_IN] & AT91C_UDP_TXCOMP)) {
+    while (!(pUdp->UDP_CSR[pin] & AT91C_UDP_TXCOMP)) {
         if (usb_check() == false) {
             return PM3_EIO;
         }
     }
 
-    UDP_CLEAR_EP_FLAGS(AT91C_EP_IN, AT91C_UDP_TXCOMP);
-    while (pUdp->UDP_CSR[AT91C_EP_IN] & AT91C_UDP_TXCOMP) {};
+    UDP_CLEAR_EP_FLAGS(pin, AT91C_UDP_TXCOMP);
+    while (pUdp->UDP_CSR[pin] & AT91C_UDP_TXCOMP) {};
 
 
     if (!usb_midi) {
@@ -1126,11 +1242,11 @@ int usb_write(const uint8_t *data, const size_t len) {
 
     if (nbBytesSnt % AT91C_USB_EP_IN_SIZE == 0) {
         // like AT91F_USB_SendZlp(), in non ping-pong mode
-        UDP_SET_EP_FLAGS(AT91C_EP_IN, AT91C_UDP_TXPKTRDY);
-        while (!(pUdp->UDP_CSR[AT91C_EP_IN] & AT91C_UDP_TXCOMP)) {};
+        UDP_SET_EP_FLAGS(pin, AT91C_UDP_TXPKTRDY);
+        while (!(pUdp->UDP_CSR[pin] & AT91C_UDP_TXCOMP)) {};
 
-        UDP_CLEAR_EP_FLAGS(AT91C_EP_IN, AT91C_UDP_TXCOMP);
-        while (pUdp->UDP_CSR[AT91C_EP_IN] & AT91C_UDP_TXCOMP) {};
+        UDP_CLEAR_EP_FLAGS(pin, AT91C_UDP_TXCOMP);
+        while (pUdp->UDP_CSR[pin] & AT91C_UDP_TXCOMP) {};
     }
 
     return PM3_SUCCESS;
@@ -1155,7 +1271,9 @@ int async_usb_write_start(void) {
         return PM3_EIO;
     }
 
-    while (pUdp->UDP_CSR[AT91C_EP_IN] & AT91C_UDP_TXPKTRDY) {
+    uint8_t pin = (usb_midi) ? AT91C_EP_MIDI_IN : AT91C_EP_IN;
+
+    while (pUdp->UDP_CSR[pin] & AT91C_UDP_TXPKTRDY) {
         if (usb_check() == false) {
             return PM3_EIO;
         }
@@ -1177,10 +1295,14 @@ int async_usb_write_start(void) {
 */
 inline void async_usb_write_pushByte(uint8_t data) {
     if (usb_midi) {
-        pUdp->UDP_FDR[AT91C_EP_IN] = 0x05;
-        pUdp->UDP_FDR[AT91C_EP_IN] = data;
-        pUdp->UDP_FDR[AT91C_EP_IN] = 0x00;
-        pUdp->UDP_FDR[AT91C_EP_IN] = 0x00;
+        pUdp->UDP_FDR[AT91C_EP_MIDI_IN] = 0x04;
+        pUdp->UDP_FDR[AT91C_EP_MIDI_IN] = 0xF0;
+        pUdp->UDP_FDR[AT91C_EP_MIDI_IN] = HEX_TABLE[(data >> 4) & 0xF];
+        pUdp->UDP_FDR[AT91C_EP_MIDI_IN] = HEX_TABLE[data & 0xF];
+        pUdp->UDP_FDR[AT91C_EP_MIDI_IN] = 0x05;
+        pUdp->UDP_FDR[AT91C_EP_MIDI_IN] = 0xF7;
+        pUdp->UDP_FDR[AT91C_EP_MIDI_IN] = 0x00;
+        pUdp->UDP_FDR[AT91C_EP_MIDI_IN] = 0x00;
     } else {
         pUdp->UDP_FDR[AT91C_EP_IN] = data;
     }
@@ -1202,18 +1324,19 @@ inline void async_usb_write_pushByte(uint8_t data) {
  *----------------------------------------------------------------------------
 */
 inline bool async_usb_write_requestWrite(void) {
+    uint8_t pin = (usb_midi) ? AT91C_EP_MIDI_IN : AT91C_EP_IN;
 
     // check if last request is finished
-    if (pUdp->UDP_CSR[AT91C_EP_IN] & AT91C_UDP_TXPKTRDY) {
+    if (pUdp->UDP_CSR[pin] & AT91C_UDP_TXPKTRDY) {
         return false;
     }
 
     // clear transmission completed flag
-    UDP_CLEAR_EP_FLAGS(AT91C_EP_IN, AT91C_UDP_TXCOMP);
-    while (pUdp->UDP_CSR[AT91C_EP_IN] & AT91C_UDP_TXCOMP) {};
+    UDP_CLEAR_EP_FLAGS(pin, AT91C_UDP_TXCOMP);
+    while (pUdp->UDP_CSR[pin] & AT91C_UDP_TXCOMP) {};
 
     // start of transmission
-    UDP_SET_EP_FLAGS(AT91C_EP_IN, AT91C_UDP_TXPKTRDY);
+    UDP_SET_EP_FLAGS(pin, AT91C_UDP_TXPKTRDY);
 
     // hack: no need to wait if UDP_CSR and UDP_FDR are not used immediately.
     // while (!(pUdp->UDP_CSR[AT91C_EP_IN] & AT91C_UDP_TXPKTRDY)) {};
@@ -1235,29 +1358,31 @@ inline bool async_usb_write_requestWrite(void) {
  *----------------------------------------------------------------------------
 */
 int async_usb_write_stop(void) {
+    uint8_t pin = (usb_midi) ? AT91C_EP_MIDI_IN : AT91C_EP_IN;
+
     // Wait for the end of transfer
-    while (pUdp->UDP_CSR[AT91C_EP_IN] & AT91C_UDP_TXPKTRDY) {
+    while (pUdp->UDP_CSR[pin] & AT91C_UDP_TXPKTRDY) {
         if (usb_check() == false) {
             return PM3_EIO;
         }
     }
 
     // clear transmission completed flag
-    UDP_CLEAR_EP_FLAGS(AT91C_EP_IN, AT91C_UDP_TXCOMP);
-    while (pUdp->UDP_CSR[AT91C_EP_IN] & AT91C_UDP_TXCOMP) {};
+    UDP_CLEAR_EP_FLAGS(pin, AT91C_UDP_TXCOMP);
+    while (pUdp->UDP_CSR[pin] & AT91C_UDP_TXCOMP) {};
 
     // FIFO is not empty, request a write in non-ping-pong mode
     if (isAsyncRequestFinished == false) {
-        UDP_SET_EP_FLAGS(AT91C_EP_IN, AT91C_UDP_TXPKTRDY);
+        UDP_SET_EP_FLAGS(pin, AT91C_UDP_TXPKTRDY);
 
-        while (!(pUdp->UDP_CSR[AT91C_EP_IN] & AT91C_UDP_TXCOMP)) {
+        while (!(pUdp->UDP_CSR[pin] & AT91C_UDP_TXCOMP)) {
             if (usb_check() == false) {
                 return PM3_EIO;
             }
         }
 
-        UDP_CLEAR_EP_FLAGS(AT91C_EP_IN, AT91C_UDP_TXCOMP);
-        while (pUdp->UDP_CSR[AT91C_EP_IN] & AT91C_UDP_TXCOMP) {};
+        UDP_CLEAR_EP_FLAGS(pin, AT91C_UDP_TXCOMP);
+        while (pUdp->UDP_CSR[pin] & AT91C_UDP_TXCOMP) {};
     }
     return PM3_SUCCESS;
 }
@@ -1480,12 +1605,20 @@ void AT91F_CDC_Enumerate(void) {
             wIndex &= 0x0F;
             if ((wValue == 0) && (wIndex >= AT91C_EP_OUT) && (wIndex <= AT91C_EP_NOTIFY)) {
 
-                if (wIndex == AT91C_EP_OUT) {
-                    pUdp->UDP_CSR[AT91C_EP_OUT] = (AT91C_UDP_EPEDS | AT91C_UDP_EPTYPE_BULK_OUT);
-                } else if (wIndex == AT91C_EP_IN) {
-                    pUdp->UDP_CSR[AT91C_EP_IN] = (AT91C_UDP_EPEDS | AT91C_UDP_EPTYPE_BULK_IN);
-                } else if (wIndex == AT91C_EP_NOTIFY) {
-                    pUdp->UDP_CSR[AT91C_EP_NOTIFY] = (AT91C_UDP_EPEDS | AT91C_UDP_EPTYPE_INT_IN);
+                if (usb_midi) {
+                    if (wIndex == AT91C_EP_MIDI_OUT) {
+                        pUdp->UDP_CSR[AT91C_EP_MIDI_OUT] = (AT91C_UDP_EPEDS | AT91C_UDP_EPTYPE_BULK_OUT);
+                    } else if (wIndex == AT91C_EP_MIDI_IN) {
+                        pUdp->UDP_CSR[AT91C_EP_MIDI_IN] = (AT91C_UDP_EPEDS | AT91C_UDP_EPTYPE_BULK_IN);
+                    }
+                } else {
+                    if (wIndex == AT91C_EP_OUT) {
+                        pUdp->UDP_CSR[AT91C_EP_OUT] = (AT91C_UDP_EPEDS | AT91C_UDP_EPTYPE_BULK_OUT);
+                    } else if (wIndex == AT91C_EP_IN) {
+                        pUdp->UDP_CSR[AT91C_EP_IN] = (AT91C_UDP_EPEDS | AT91C_UDP_EPTYPE_BULK_IN);
+                    } else if (wIndex == AT91C_EP_NOTIFY) {
+                        pUdp->UDP_CSR[AT91C_EP_NOTIFY] = (AT91C_UDP_EPEDS | AT91C_UDP_EPTYPE_INT_IN);
+                    }
                 }
 
                 AT91F_USB_SendZlp(pUdp);
@@ -1513,12 +1646,16 @@ void AT91F_CDC_Enumerate(void) {
         case GET_LINE_CODING:
 #ifndef AS_BOOTROM
             usb_midi = false;
+            pUdp->UDP_CSR[AT91C_EP_OUT] = (AT91C_UDP_EPEDS | AT91C_UDP_EPTYPE_BULK_OUT);
+            pUdp->UDP_CSR[AT91C_EP_IN] = (AT91C_UDP_EPEDS | AT91C_UDP_EPTYPE_BULK_IN);
 #endif // AS_BOOTROM
             AT91F_USB_SendData(pUdp, (char *) &line, MIN(sizeof(line), wLength));
             break;
         case SET_CONTROL_LINE_STATE:
 #ifndef AS_BOOTROM
             usb_midi = false;
+            pUdp->UDP_CSR[AT91C_EP_OUT] = (AT91C_UDP_EPEDS | AT91C_UDP_EPTYPE_BULK_OUT);
+            pUdp->UDP_CSR[AT91C_EP_IN] = (AT91C_UDP_EPEDS | AT91C_UDP_EPTYPE_BULK_IN);
 #endif // AS_BOOTROM
             btConnection = wValue;
             AT91F_USB_SendZlp(pUdp);
@@ -1528,10 +1665,14 @@ void AT91F_CDC_Enumerate(void) {
         // handle MIDI class requests
         case MIDI_GET_STATUS:
             usb_midi = true;
+            pUdp->UDP_CSR[AT91C_EP_MIDI_OUT] = (AT91C_UDP_EPEDS | AT91C_UDP_EPTYPE_BULK_OUT);
+            pUdp->UDP_CSR[AT91C_EP_MIDI_IN] = (AT91C_UDP_EPEDS | AT91C_UDP_EPTYPE_BULK_IN);
             AT91F_USB_SendZlp(pUdp);
             break;
         case MIDI_BULK_GET_STATUS:
             usb_midi = true;
+            pUdp->UDP_CSR[AT91C_EP_MIDI_OUT] = (AT91C_UDP_EPEDS | AT91C_UDP_EPTYPE_BULK_OUT);
+            pUdp->UDP_CSR[AT91C_EP_MIDI_IN] = (AT91C_UDP_EPEDS | AT91C_UDP_EPTYPE_BULK_IN);
             AT91F_USB_SendZlp(pUdp);
             break;
 #endif // AS_BOOTROM
