@@ -18,9 +18,9 @@ extern "C" {
 #include <stdio.h>
 #include <pthread.h>
 
-#if __APPLE__
-#include <TargetConditionals.h>
-#if TARGET_OS_IPHONE
+#ifdef __APPLE__
+#include "TargetConditionals.h"
+#ifdef TARGET_OS_IPHONE
 
 /* #define errx compileError
 #define err compileError
@@ -121,11 +121,11 @@ extern const char* ios_expandtilde(const char *login);
 extern void ios_activateChildStreams(FILE** old_stdin, FILE** old_stdout,  FILE ** old_stderr);
 extern const char* ios_getBookmarkedVersion(const char* p);
 #endif
-#else
+#else // ifndef __APPLE__
 #define thread_stdin stdin
 #define thread_stdout stdout
 #define thread_stderr stderr
-#endif
+#endif // __APPLE__
 
 #ifdef __cplusplus
 }
